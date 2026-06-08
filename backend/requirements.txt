@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+sqlalchemy
+pymysql
+python-multipart
+opencv-python-headless
+numpy
+deepface
+pydantic
+tf-keras
