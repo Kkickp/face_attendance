@@ -1,0 +1,69 @@
+# Infrastruktur & Desain UI/UX
+**Sistem Presensi Online Berbasis Face Recognition**
+
+Dokumen ini menjelaskan struktur jaringan (infrastruktur server), kerangka *folder* (*directory structure*), serta pedoman antarmuka dan pengalaman pengguna (UI/UX) untuk sistem presensi ini.
+
+---
+
+## 1. Infrastruktur Server & Jaringan
+
+Mengingat arsitekturnya dipisah antara PHP dan Python, sistem ini akan berjalan menggunakan dua layanan (*services*) yang saling berkomunikasi secara lokal maupun di dalam jaringan.
+
+### Konfigurasi Port & Layanan
+| Layanan | Teknologi | Port Default | Tugas Utama |
+| :--- | :--- | :--- | :--- |
+| **Web Server (Frontend)** | Apache / Nginx (via XAMPP/Native) + PHP | `80` atau `8080` | Menyajikan UI, mengelola sesi Admin, dan koneksi ke Database untuk pelaporan. |
+| **API Server (Backend Engine)** | Uvicorn + FastAPI (Python) | `8000` | Menerima gambar base64, memproses AI, mencocokkan wajah, mencatat ke Database. |
+| **Database Server** | MySQL / MariaDB | `3306` | Pusat penyimpanan data Mahasiswa, Face Encodings, dan Log Presensi. |
+
+---
+
+## 2. Struktur Direktori Proyek
+
+Agar proyek rapi, direktori *source code* akan dipisah secara tegas antara `frontend` dan `backend`.
+
+```text
+/project-presensi-wajah
+├── /frontend/                 # Kumpulan kode PHP (The Face)
+│   ├── /assets/               # CSS, JS, Gambar, Ikon
+│   │   ├── style.css          # Gaya antarmuka (Dark mode/Glassmorphism)
+│   │   └── scanner.js         # Logika WebRTC untuk akses kamera dan API Fetch
+│   ├── /admin/                # Halaman untuk Sekretariat/Guru
+│   │   ├── dashboard.php
+│   │   └── enroll.php         # Pendaftaran wajah
+│   ├── index.php              # Halaman utama (Portal Login)
+│   └── presensi.php           # Halaman mahasiswa menghadap kamera
+│
+├── /backend/                  # Kumpulan kode Python (The Brain)
+│   ├── /models/               # Jika menggunakan model Liveness kustom (.h5/.onnx)
+│   ├── main.py                # Entry point FastAPI
+│   ├── database.py            # Koneksi dan ORM MySQL
+│   ├── face_utils.py          # Logika ekstraksi dan pencocokan
+│   └── requirements.txt       # Daftar library (fastapi, uvicorn, opencv-python, dll)
+│
+└── README.md                  # Dokumentasi cara menjalankan sistem
+```
+
+---
+
+## 3. Desain UI/UX (Antarmuka Pengguna)
+
+Untuk menciptakan pengalaman pengguna yang memukau (*WOW factor*), antarmuka akan menggunakan tren desain modern: **Dark Mode dengan Glassmorphism**.
+
+### Pedoman Estetika
+- **Tema:** Dark Mode yang elegan (latar belakang gelap seperti warna *Slate* atau *Onyx*).
+- **Efek Visual:** Elemen tembus pandang bergaya kaca (*Glassmorphism*) dengan *blur* pada latar belakang kartu/panel.
+- **Warna Utama (Aksen):** Gradien *Neon Blue* (Biru) dan *Cyan* untuk memberi kesan futuristik dan AI.
+- **Warna Status:** 
+  - Hijau Neon: Sukses / Hadir.
+  - Merah Neon: Gagal / *Spoofing*.
+- **Tipografi:** Menggunakan keluarga huruf tanpa kait (*sans-serif*) modern dari Google Fonts seperti **Inter**, **Poppins**, atau **Outfit**.
+
+### Mockup Visual (Konsep Halaman Presensi)
+
+Berikut adalah purwarupa (*mockup*) antarmuka presensi dari sisi Mahasiswa. Sisi kiri menampilkan *video feed* kamera secara langsung dengan lapisan (*overlay*) pemindai futuristik. Sisi kanan menampilkan status instan ketika wajah berhasil dikenali.
+
+![UI Mockup Face Recognition Attendance](C:\Users\LENOVO\.gemini\antigravity\brain\dc720283-b410-4e1b-a56c-d5f3eaf8db41\face_recognition_ui_mockup_1779457275309.png)
+
+> [!NOTE]
+> Pada gambar di atas, sistem akan mendeteksi wajah di dalam area *frame* kamera. Begitu cocok, panel notifikasi sukses akan langsung muncul melalui JavaScript tanpa memuat ulang halaman (*page reload*).

@@ -1,0 +1,65 @@
+# Functional Requirements Specification (FRS)
+**Sistem Presensi Online Berbasis Face Recognition**
+
+---
+
+## 1. Pendahuluan
+### 1.1 Tujuan Dokumen
+Dokumen ini mendefinisikan secara rinci kebutuhan fungsional dan non-fungsional dari **Sistem Presensi Online Berbasis Face Recognition**. Dokumen ini menjadi pedoman utama sebelum masuk ke tahap pengembangan (pengkodean).
+
+### 1.2 Deskripsi Umum Sistem
+Sistem ini memungkinkan mahasiswa untuk mencatatkan kehadiran mereka secara otomatis menggunakan pengenalan wajah (*face recognition*). Sistem ini mengusung arsitektur terpisah antara antarmuka web (menggunakan PHP) dan mesin pemroses AI (menggunakan Python dengan framework FastAPI), dengan basis data terpusat (MySQL).
+
+---
+
+## 2. Kategori Pengguna (User Roles)
+Sistem ini memiliki dua peran utama:
+1. **Admin (Guru/Sekretariat/Akademik):** Bertanggung jawab mengelola data induk, merekam wajah (*enrollment*), dan memantau kehadiran.
+2. **Mahasiswa:** Bertindak sebagai pengguna akhir yang melakukan presensi melalui kamera web.
+
+---
+
+## 3. Kebutuhan Fungsional (Functional Requirements)
+
+### 3.1 Kebutuhan Admin (FR-ADM)
+| Kode | Deskripsi | Prioritas |
+| :--- | :--- | :--- |
+| **FR-ADM-01** | Admin harus dapat melakukan otentikasi (Login/Logout) ke dalam sistem panel kontrol. | Tinggi |
+| **FR-ADM-02** | Admin harus dapat melihat **Dashboard Rekapitulasi** yang menampilkan jumlah mahasiswa hadir, absen, dan persentase kehadiran harian. | Tinggi |
+| **FR-ADM-03** | Admin harus dapat mengelola data mahasiswa (Create, Read, Update, Delete) seperti NIM dan Nama. | Tinggi |
+| **FR-ADM-04** | Admin harus dapat melakukan **Manajemen Data Wajah Master (Enrollment)** untuk mahasiswa baru dengan mengambil foto lewat webcam atau mengunggah file foto. | Tinggi |
+| **FR-ADM-05** | Admin harus dapat melihat riwayat presensi harian secara terperinci. | Tinggi |
+| **FR-ADM-06** | Admin harus dapat mengekspor laporan presensi (ke format PDF atau Excel). | Menengah |
+
+### 3.2 Kebutuhan Mahasiswa (FR-MHS)
+| Kode | Deskripsi | Prioritas |
+| :--- | :--- | :--- |
+| **FR-MHS-01** | Mahasiswa harus dapat mengakses halaman utama presensi yang mengaktifkan akses kamera (Webcam) secara otomatis. | Tinggi |
+| **FR-MHS-02** | Mahasiswa tidak perlu mengetikkan *password*; kehadiran dicatat murni dari pencocokan wajah secara *real-time*. | Tinggi |
+| **FR-MHS-03** | Mahasiswa harus menerima **Umpan Balik Instan** (misalnya: "Presensi Berhasil, Halo [Nama]" atau "Wajah Tidak Dikenali") secara langsung di layar tanpa memuat ulang halaman (*page reload*). | Tinggi |
+
+### 3.3 Kebutuhan Mesin Backend & Sistem (FR-SYS)
+| Kode | Deskripsi | Prioritas |
+| :--- | :--- | :--- |
+| **FR-SYS-01** | Sistem (Python API) harus mampu menerima *frame* gambar dari antarmuka PHP (melalui protokol HTTP/JSON). | Tinggi |
+| **FR-SYS-02** | Sistem harus melakukan **Liveness Detection** untuk mendeteksi apabila gambar yang dikirim adalah foto cetak atau pantulan dari layar perangkat (mencegah *spoofing*). | Tinggi |
+| **FR-SYS-03** | Sistem harus mampu mengekstrak wajah (*Face Extraction*) menjadi *face encodings*. | Tinggi |
+| **FR-SYS-04** | Sistem harus mencocokkan wajah yang diterima dengan data wajah di database (*Face Matching*). | Tinggi |
+| **FR-SYS-05** | Sistem (PHP/Python) harus secara otomatis mencatat *log* waktu presensi dan status ("Hadir", "Tidak Dikenal", "Spoofing") ke dalam Database MySQL. | Tinggi |
+
+---
+
+## 4. Kebutuhan Non-Fungsional (Non-Functional Requirements)
+
+| Kategori | Deskripsi |
+| :--- | :--- |
+| **Kinerja (Performance)** | - Proses dari pengambilan gambar hingga muncul notifikasi (verifikasi wajah + pengecekan database) harus berlangsung kurang dari **1-2 detik** pada koneksi normal.<br>- Backend API (FastAPI) harus dikonfigurasi secara *asynchronous* untuk melayani *request* yang tinggi secara bersamaan. |
+| **Keamanan (Security)** | - Penerapan *Liveness Detection* adalah syarat mutlak keamanan.<br>- Komunikasi antara PHP Frontend dan Python API disarankan tidak dapat diakses langsung oleh publik tanpa otorisasi internal.<br>- Untuk implementasi level produksi, kamera WebRTC mewajibkan koneksi HTTPS (SSL). |
+| **Antarmuka (UI/UX)** | Halaman presensi mahasiswa harus sangat intuitif, responsif (*mobile-friendly* jika diakses dari gawai), dan memberikan panduan visual jika pencahayaan kurang. |
+| **Penyimpanan (Storage)** | *Face encodings* (fitur matematis) disimpan langsung ke dalam tabel teks di MySQL sehingga pencocokan tidak memerlukan baca-tulis (*I/O*) *file* foto secara konstan, menghemat ruang disk dan memori. |
+
+---
+
+> [!IMPORTANT]
+> ## Review Dokumen
+> FRS di atas mendefinisikan batasan, perilaku, dan aturan main dari sistem yang akan kita bangun. Silakan periksa kembali apakah ada fungsionalitas yang masih terlewat (misalnya: penambahan waktu toleransi keterlambatan, shift kelas, dll).

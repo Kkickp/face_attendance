@@ -1,0 +1,60 @@
+# Walkthrough: Sistem Presensi Wajah Selesai Dibuat! 🎉
+
+Selamat! Seluruh *source code* untuk sistem presensi berbasis *Face Recognition* yang kita rancang telah berhasil dibuat dan disimpan di dalam folder:
+`C:\Users\LENOVO\.gemini\antigravity\scratch\face_attendance_system\`
+
+Berikut adalah rangkuman dari apa saja yang telah dibangun.
+
+---
+
+## 1. Komponen yang Berhasil Dibangun
+
+### 🧠 The Brain (Python Backend)
+Terletak di dalam folder `/backend/`.
+- `main.py`: Aplikasi FastAPI yang siap menerima *request* deteksi wajah dengan sangat cepat.
+- `face_utils.py`: Berisi logika pengenalan wajah menggunakan `face_recognition` OpenCV, serta **Passive Liveness Detection** untuk mendeteksi *spoofing* dari gambar buram atau foto cetak.
+- `database.py`: Menghubungkan logika Python ke MySQL melalui ORM SQLAlchemy.
+- `requirements.txt`: Daftar pustaka yang siap diinstal (FastAPI, OpenCV, dll).
+
+### 🖥️ The Face (PHP Frontend)
+Terletak di dalam folder `/frontend/`.
+- `presensi.php`: Antarmuka utama dengan kamera (*webcam*) untuk siswa melakukan presensi.
+- `assets/scanner.js`: Script JavaScript modern yang secara otomatis memindai wajah setiap 1,5 detik dan berinteraksi dengan API Python.
+- `assets/style.css`: Desain super modern menggunakan **Dark Mode** dan **Glassmorphism**, memberikan kesan elegan dengan aksen neon biru.
+- `admin/enroll.php`: Form bagi admin untuk mendaftarkan wajah mahasiswa baru menggunakan *webcam*.
+- `admin/dashboard.php`: *Dashboard* untuk melihat *log* riwayat presensi terbaru (langsung terhubung ke MySQL).
+
+---
+
+## 2. Cara Menjalankan Sistem Ini (Testing)
+
+Untuk melihat sistem ini hidup, Anda perlu melakukan langkah-langkah berikut di komputer/server Anda:
+
+### Langkah 1: Siapkan Database
+1. Nyalakan **Apache** dan **MySQL** dari kontrol panel XAMPP.
+2. Buka phpMyAdmin (atau terminal MySQL).
+3. Buat database baru bernama `face_attendance_db` lalu jalankan/impor skrip SQL dari file `database.sql` yang telah saya buat di root folder.
+
+### Langkah 2: Jalankan API Python
+1. Buka terminal/Command Prompt di folder `backend/`.
+2. Instal pustaka yang dibutuhkan:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. Jalankan server FastAPI dengan Uvicorn:
+   ```bash
+   uvicorn main:app --reload
+   ```
+4. Server AI Anda sekarang berjalan di `http://localhost:8000`.
+
+### Langkah 3: Akses Web UI
+1. Pindahkan atau hubungkan (Symlink) folder `/frontend/` ke dalam folder `htdocs` XAMPP Anda.
+2. Buka browser dan arahkan ke alamat web server lokal Anda:
+   - Halaman pendaftaran wajah: `http://localhost/frontend/admin/enroll.php`
+   - Halaman presensi mahasiswa: `http://localhost/frontend/presensi.php`
+
+---
+
+> [!TIP]
+> **Apa Selanjutnya?**
+> Jika Anda mengalami masalah saat instalasi *library* Python (terutama `face_recognition` atau `dlib` di Windows), pastikan Anda sudah menginstal C++ Build Tools. Jika Anda membutuhkan bantuan untuk menjalankannya (*testing*), atau ada penyesuaian logika yang ingin dilakukan, beri tahu saya!

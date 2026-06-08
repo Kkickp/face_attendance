@@ -1,0 +1,102 @@
+# End-to-End (E2E) System Workflow
+**Sistem Presensi Online Berbasis Face Recognition**
+
+Dokumen ini memetakan alur kerja sistem dari ujung ke ujung (*End-to-End*), memperlihatkan bagaimana interaksi antara Pengguna, UI (PHP), Engine (Python), dan Database (MySQL).
+
+---
+
+## 1. E2E Flow: Pendaftaran Wajah Master (Enrollment)
+Alur ini dijalankan ketika Admin (atau Mahasiswa) pertama kali merekam wajah mereka ke dalam sistem agar bisa dikenali di kemudian hari.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Admin as Admin / Siswa
+    participant PHP as PHP (Web Frontend)
+    participant Python as Python (FastAPI)
+    participant DB as MySQL Database
+
+    Admin->>PHP: Buka Form Pendaftaran Wajah
+    PHP-->>Admin: Tampilkan UI Form & Akses Webcam
+    Admin->>PHP: Input NIM, Nama & Ambil Foto
+    PHP->>Python: HTTP POST /api/enroll <br/> (Payload: NIM, Nama, Foto Base64)
+    
+    activate Python
+    Python->>Python: Deteksi Wajah (Face Detection)
+    Python->>Python: Ekstrak Fitur Matematis (128-d Encoding)
+    
+    alt Wajah Tidak Terdeteksi / Lebih dari 1
+        Python-->>PHP: Response {status: error, msg: "Wajah tidak valid"}
+    else Wajah Valid
+        Python->>DB: INSERT INTO mahasiswa <br/> (nim, nama, face_encoding)
+        DB-->>Python: Sukses (Row Created)
+        Python-->>PHP: Response {status: success}
+    end
+    deactivate Python
+    
+    PHP-->>Admin: Tampilkan Notifikasi "Pendaftaran Berhasil"
+```
+
+---
+
+## 2. E2E Flow: Proses Presensi Wajah (Recognition & Liveness)
+Alur utama ketika mahasiswa melakukan presensi. Halaman web akan terus-menerus (atau berbasis tombol) mengambil *frame* dari kamera untuk dikirimkan ke mesin AI.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Mahasiswa
+    participant Web as Browser (WebRTC/JS)
+    participant Python as Python (FastAPI)
+    participant DB as MySQL Database
+
+    Mahasiswa->>Web: Buka Halaman Presensi
+    Web-->>Mahasiswa: Aktifkan Kamera & Tampilkan Video Stream
+    
+    loop Real-time Capture (via JS Fetch)
+        Web->>Web: Ambil Frame (Snapshot Video)
+        Web->>Python: HTTP POST /api/recognize <br/> (Payload: Foto Base64)
+        
+        activate Python
+        Python->>Python: 1. Liveness Detection
+        alt Liveness Gagal (Foto cetak / Layar)
+            Python-->>Web: Response {status: spoofing, msg: "Spoofing Terdeteksi!"}
+        else Liveness Lulus (Wajah Asli)
+            Python->>Python: 2. Face Detection & Encoding
+            Python->>DB: 3. SELECT nim, face_encoding FROM mahasiswa
+            DB-->>Python: Return list [encodings]
+            Python->>Python: 4. Pencocokan Wajah (Face Matching)
+            
+            alt Wajah Cocok (Distance < Threshold)
+                Python->>DB: 5. INSERT INTO presensi <br/> (nim, waktu, status='Hadir')
+                DB-->>Python: Sukses
+                Python-->>Web: Response {status: success, nama: "[Nama Mahasiswa]"}
+            else Wajah Tidak Cocok
+                Python-->>Web: Response {status: unknown, msg: "Wajah Tidak Dikenali"}
+            end
+        end
+        deactivate Python
+        
+        Web-->>Mahasiswa: Tampilkan Popup Instan / Teks <br/> ("Presensi Berhasil, Halo..." / "Gagal...")
+    end
+```
+
+---
+
+## 3. E2E Flow: Admin Dashboard (Pelaporan)
+Alur saat Admin ingin melihat data rekapitulasi presensi. Pada tahap ini, PHP langsung berkomunikasi dengan Database tanpa melibatkan Python (karena tidak ada pemrosesan AI).
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Admin
+    participant PHP as PHP (Web Frontend)
+    participant DB as MySQL Database
+
+    Admin->>PHP: Buka Halaman Dashboard / Laporan
+    activate PHP
+    PHP->>DB: SELECT * FROM presensi JOIN mahasiswa
+    DB-->>PHP: Return Data (Baris Presensi)
+    PHP->>PHP: Render HTML Table & Chart
+    PHP-->>Admin: Tampilkan UI Rekapitulasi Presensi
+    deactivate PHP
