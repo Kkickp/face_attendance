@@ -31,7 +31,7 @@ def check_liveness(img):
     """
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     variance = cv2.Laplacian(gray, cv2.CV_64F).var()
-    if variance < 50.0: # Threshold blur
+    if variance < 10.0: # Threshold blur
         return False, "Spoofing Terdeteksi: Gambar tidak fokus atau dari media cetak (blur)."
     return True, "Liveness OK"
 
