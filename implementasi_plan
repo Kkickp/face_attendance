@@ -1,64 +1,44 @@
-# Analisis Sistem Presensi Online Berbasis Face Recognition (Revisi 1)
+# Arsitektur & Implementasi Final: Sistem Presensi Online Berbasis Face Recognition
 
-Dokumen ini berisi analisis yang telah disempurnakan berdasarkan kebutuhan spesifik Anda.
+Dokumen ini berisi spesifikasi arsitektur final dari sistem yang **telah dikembangkan**. Rencana ini telah direvisi berdasarkan keputusan dan penyesuaian yang terjadi selama tahap eksekusi kode (khususnya untuk kompatibilitas Windows).
 
 ## 1. Deskripsi Tujuan
-Membangun sebuah sistem presensi berbasis *face recognition* yang dilengkapi dengan *Liveness Detection* (anti-spoofing). Sistem memberikan umpan balik (*feedback*) instan melalui webcam browser. Arsitektur dipisah menjadi *Frontend* (PHP) dan *Backend Engine* (Python).
+Membangun sebuah sistem presensi berbasis *face recognition* yang dilengkapi dengan mekanisme pengamanan (*Liveness Detection*) dasar. Sistem memberikan umpan balik (*feedback*) instan melalui webcam browser, dengan memisahkan *Frontend* (PHP) dan *Backend Engine* (Python).
 
-## 2. Arsitektur Sistem yang Disepakati
+## 2. Arsitektur Sistem Final
 
 ### A. The Face (User Interface - PHP)
-Fokus pada interaksi pengguna dan pelaporan.
-- **Teknologi:** PHP, HTML5, CSS3, JavaScript (WebRTC & Fetch API).
-- **Fitur Halaman Mahasiswa:**
-  - Menampilkan *stream* kamera secara langsung.
-  - Secara otomatis atau berbasis tombol mengambil *frame* gambar dari kamera.
-  - Mengirimkan *frame* gambar tersebut secara *asynchronous* (AJAX/Fetch) ke Backend.
-  - Menampilkan notifikasi instan di layar: **"Presensi Berhasil, Halo [Nama Mahasiswa]"** atau **"Wajah Tidak Dikenali"** atau **"Spoofing Terdeteksi!"**.
-- **Fitur Halaman Admin (Sekretariat/Guru):**
-  - **Dashboard:** Menampilkan rekapitulasi kehadiran (grafik/tabel jumlah hadir, absen, persentase kehadiran).
-  - **Manajemen Data Wajah Master:** Form untuk mendaftarkan wajah baru (mengambil dari kamera atau unggah foto) yang terhubung dengan data induk mahasiswa.
-  - **Laporan:** Ekspor laporan presensi.
+Fokus pada antarmuka, keamanan data form, dan pelaporan.
+- **Teknologi:** PHP Native, HTML5, CSS3, JavaScript (WebRTC & Fetch API).
+- **Fitur Halaman Mahasiswa (`presensi.php`):**
+  - Mengambil akses kamera dan memvalidasi jika kamera tidak ditemukan (mencegah pengiriman *frame* kosong yang bisa menyebabkan server *crash*).
+  - Mengirimkan *frame* gambar base64 secara *asynchronous* (Fetch API) ke Backend.
+  - Menampilkan notifikasi visual secara *real-time* tanpa *refresh* halaman (contoh: "Presensi Berhasil, Halo Budi").
+- **Fitur Halaman Admin (`admin/dashboard.php` & `admin/enroll.php`):**
+  - **Dashboard:** Menampilkan tabel riwayat presensi terbaru dengan koneksi langsung ke MySQL menggunakan antarmuka PDO.
+  - **Pendaftaran Wajah Master:** Akses antarmuka khusus untuk merekam fitur wajah dari webcam dan menyimpannya ke *database*.
 
 ### B. The Brain (Backend Engine - Python)
-Fokus pada pemrosesan citra, AI, dan verifikasi.
-- **Teknologi:** Python, **FastAPI** (untuk performa tinggi/REST API), **face_recognition** atau **DeepFace**, dan model **Liveness Detection**.
-- **Alur Pemrosesan (Endpoint `/api/recognize`):**
-  1. Menerima gambar base64/file dari Frontend.
-  2. **Liveness Detection:** Mengevaluasi gambar untuk memastikan wajah tersebut asli (bukan dari foto/layar). Jika gagal, tolak dengan pesan "Spoofing".
-  3. **Face Detection & Extraction:** Menemukan wajah dan mengubahnya menjadi *face encoding* (vektor 128-dimensi).
-  4. **Face Matching:** Mengambil data *face encodings* dari Database MySQL, lalu membandingkannya dengan *encoding* gambar baru.
-  5. Mengembalikan hasil (NIM/Nama atau Gagal) dalam bentuk JSON.
+Bertindak sebagai *microservice* AI yang murni memproses citra dan data matematis.
+- **Teknologi Utama:** Python, **FastAPI** (API Server berkinerja tinggi), **DeepFace** (Ekstraksi fitur wajah), dan **OpenCV** (manipulasi *frame* kamera).
+- **Alasan Penggunaan DeepFace (Update Fase Eksekusi):**
+  - Sebelumnya direncanakan menggunakan `face_recognition` (dlib). Namun, karena pengguna Windows sering mengalami kendala ketergantungan *Missing C++ Build Tools*, arsitektur diganti menggunakan `DeepFace`. Pustaka ini memanfaatkan TensorFlow dan OpenCV yang sudah berbentuk *pre-compiled wheel*, sehingga 100% aman dan praktis diinstal di Windows tanpa perlu kompilator C++. Model deteksi wajah disetel menggunakan *Facenet* Google yang sangat cepat dan akurat.
+- **Alur Pemrosesan (`/api/recognize` & `/api/enroll`):**
+  1. Menerima gambar base64 dari PHP.
+  2. Melakukan dekode (*decode*) base64 menjadi array piksel OpenCV secara aman (*safe handling*).
+  3. **Liveness Detection:** Mengecek ketajaman piksel (*Laplacian variance*) untuk menolak foto cetak buram atau sensor yang tertutup.
+  4. **Face Encoding:** Mengubah gambar BGR OpenCV menjadi vektor *embedding* wajah (deret 128 dimensi) menggunakan model *Facenet*.
+  5. **Face Matching:** Mengambil tumpukan *encodings* dari MySQL via SQLAlchemy, menghitung *Cosine Distance* secara berulang. Jika jaraknya <= 0.40, wajah dinyatakan cocok dengan pemilik data.
 
 ### C. Database (MySQL)
-Seluruh data terpusat di MySQL.
-- **Tabel `mahasiswa`:** 
-  - `nim` (Primary Key)
-  - `nama_lengkap`
-  - `face_encoding` (Kolom bertipe TEXT/JSON/BLOB untuk menyimpan representasi matematis wajah, sehingga tidak perlu membaca file lokal di server Python secara berulang).
-- **Tabel `presensi`:** 
-  - `id`
-  - `nim`
-  - `waktu_presensi`
-  - `status` (Hadir/Spoofing/dll)
-  - `foto_bukti` (opsional, untuk audit admin)
+Pusat kebenaran data (*Single Source of Truth*).
+- **Tabel `mahasiswa`:** Menyimpan profil pengguna dan kolom `face_encoding` dengan tipe `TEXT`. Kolom ini memuat JSON string representasi vektor wajah, agar pembacaan sangat ringan dan *portable*.
+- **Tabel `presensi`:** Menyimpan riwayat pencatatan jam masuk dan status ("Hadir", "Spoofing", dll), berelasi *(Foreign Key)* menunjuk pada tabel mahasiswa.
 
-## 3. Strategi Implementasi Liveness Detection
-Mengingat Anda mensyaratkan *Liveness Detection* (anti-spoofing), pendekatan yang akan digunakan adalah **Passive Liveness Detection** di sisi Backend. 
-- Python akan menggunakan model pra-terlatih (seperti arsitektur CNN / *Silent-Face-Anti-Spoofing*) yang dapat membedakan tekstur kulit asli dengan tekstur kertas foto atau pantulan layar perangkat (*moiré pattern*).
-- Jika sistem mendeteksi wajah palsu, proses presensi langsung dihentikan dan API mengirim status "Spoofing" ke PHP.
-
-## 4. Alur Interaksi Waktu Nyata (Real-time Interaction)
+## 3. Alur Interaksi Waktu Nyata (Real-time Interaction)
 1. Siswa menghadap kamera di halaman web (PHP).
-2. JavaScript di browser secara berkala (misal tiap 1-2 detik) mengambil *snapshot* dari kamera atau menunggu siswa menekan tombol "Hadir".
-3. *Snapshot* dikirim ke API FastAPI.
-4. FastAPI melakukan *Liveness Check* -> *Face Encoding* -> *Database Matching*. Waktu proses ditargetkan di bawah 1 detik.
-5. FastAPI membalas JSON: `{"status": "success", "nama": "Budi"}`.
-6. Halaman PHP memunculkan *pop-up* atau teks tebal warna hijau: **"Presensi Berhasil, Halo Budi"** tanpa me-*refresh* halaman web.
-
-## 5. Rencana Tahapan Eksekusi Selanjutnya
-Jika desain ini sudah sesuai, langkah pengembangannya adalah:
-1. **Fase 1:** Menyiapkan struktur Database (MySQL).
-2. **Fase 2:** Mengembangkan *Backend Engine* (FastAPI + Face Recognition + Liveness Model).
-3. **Fase 3:** Mengembangkan *User Interface* (PHP + WebRTC) untuk Admin dan Mahasiswa.
-4. **Fase 4:** Integrasi API dan Uji Coba.
+2. JavaScript memverifikasi resolusi dan dimensi video. Jika tidak 0, ia mengambil *snapshot* secara rekursif (berulang).
+3. *Snapshot* dikirim ke API FastAPI `http://localhost:8000/api/recognize`.
+4. FastAPI melakukan perlindungan kegagalan (*try-except*) -> *Liveness Check* -> *DeepFace Encoding* -> *Cosine Matching*.
+5. FastAPI membalas dengan JSON respons dalam pecahan detik (kecuali saat *booting* pertama kali ketika memuat bobot Facenet ke RAM).
+6. Halaman PHP memunculkan umpan balik (*badge* hijau/merah) di sisi kanan kamera pengguna.
